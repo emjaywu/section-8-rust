@@ -1,26 +1,22 @@
 mod data;
 
+use std::error::Error;
 use data::{load_cleaned_data, HousingProperty};
 
-fn main() {
-    let path = "data/Subsidized_Housing_-_Six_Metro_Areas_-_2017.csv";
+fn main() -> Result<(), Box<dyn Error>> {
+    let path = "data/cleaned_subsidized_housing.csv";
+    let properties = load_cleaned_data(path)?;
+    println!("Loaded {} cleaned housing entries.", properties.len());
 
-    match load_cleaned_data(path) {
-        Ok(properties) => {
-            println!("Successfully loaded {} housing entries.", properties.len());
-
-            // Print out the first 3 entries for confirmation (TENTATIVE)
-            for (i, property) in properties.iter().take(3).enumerate() {
-                println!("\n--- Property {} ---", i + 1);
-                println!("Total Units: {}", property.total_units);
-                println!("Subsidies: {}", property.subsidy_count);
-                println!("Latitude: {}", property.latitude);
-                println!("Longitude: {}", property.longitude);
-                println!("Owner Type: {}", property.owner_type);
-            }
-        },
-        Err(e) => {
-            eprintln!("Failed to load dataset: {}", e);
-        }
+    // might delete later
+    for (i, entry) in properties.iter().take(3).enumerate() {
+        println!("\n--- Entry {} ---", i + 1);
+        println!("Total Units: {}", entry.total_units);
+        println!("Subsidies: {}", entry.subsidy_count);
+        println!("Latitude: {}", entry.latitude);
+        println!("Longitude: {}", entry.longitude);
+        println!("Owner Type: {}", entry.owner_type);
     }
+
+    Ok(())
 }
