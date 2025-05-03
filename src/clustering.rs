@@ -6,73 +6,92 @@ use crate::data::HousingProperty;
 use std::collections::HashMap;
 
 /// Converts HousingProperty to Array2<f64> with normalized features for linfa clustering
-fn to_ndarray(properties: &[HousingProperty]) -> Array2<f64> {
-	let n_rows = properties.len();
-	let n_cols = 4; // TotalUnits, ActiveSubs, Latitude, Longitude
-	let mut data = Array2::<f64>::zeros((n_rows, n_cols));
+/// Returns (scaled_data, mins, ranges) so we can denormalize later.
+fn to_ndarray_with_scales(
+    properties: &[HousingProperty],
+) -> (Array2<f64>, [f64; 2], [f64; 2]) {
+    let n = properties.len();
+    let mut data = Array2::<f64>::zeros((n, 2));
 
-	// Filling values
-	for (i, prop) in properties.iter().enumerate() {
-		data[[i, 0]] = prop.total_units as f64;
-		data[[i, 1]] = prop.subsidy_count as f64;
-		data[[i, 2]] = prop.latitude;
-		data[[i, 3]] = prop.longitude;
-	}
+    // 1) fill raw values for units & subsidies
+    for (i, p) in properties.iter().enumerate() {
+        data[[i, 0]] = p.total_units as f64;
+        data[[i, 1]] = p.subsidy_count as f64;
+    }
 
-	// Normalizing data in this block
-	for col in 0..n_cols {
-		let mut col_data = data.column_mut(col); 
-		let mean = col_data.mean().unwrap_or(0.0);
-		let std = col_data.std(0.0);
-		if std > 0.0 {
-			col_data.iter_mut().for_each(|v| *v = (*v - mean) / std);
-		}
-	}
-	
-	data
+    // 2) compute mins and maxs
+    let mut mins = [f64::INFINITY; 2];
+    let mut maxs = [f64::NEG_INFINITY; 2];
+    for col in 0..2 {
+        for &v in data.column(col).iter() {
+            if v < mins[col] { mins[col] = v; }
+            if v > maxs[col] { maxs[col] = v; }
+        }
+    }
+
+    // 3) min–max scale into [0,1], record ranges = max–min
+    let mut ranges = [0.0; 2];
+    for col in 0..2 {
+        let range = maxs[col] - mins[col];
+        ranges[col] = range;
+        if range > 0.0 {
+            let mut col_data = data.column_mut(col);
+            for x in col_data.iter_mut() {
+                *x = (*x - mins[col]) / range;
+            }
+        }
+    }
+
+    (data, mins, ranges)
 }
 
 /// Run k-means clustering via linfa
-pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Vec<usize>, Box<dyn std::error::Error>> {
-	let data = to_ndarray(properties);
-	let dataset = DatasetBase::from(data); // added to fix mismatched types
-	let model = KMeans::params(k).max_n_iterations(100).fit(&dataset)?; 
-	let labels = model.predict(&dataset);
-	let centroids = model.centroids();
+pub fn cluster_properties(
+    properties: &[HousingProperty],
+    k: usize,
+) -> Result<Vec<usize>, Box<dyn std::error::Error>> {
+    // scale and keep mins/ranges
+    let (data, mins, ranges) = to_ndarray_with_scales(properties);
+    let dataset = DatasetBase::from(data);
 
-	println!("Cluster centroids:");
-	for (i, centroid) in centroids.outer_iter().enumerate() {
-		println!("Cluster {}:", i);
-		println!("Total Units: {:.2}", centroid[0]);
-		println!("Active Subsidies: {:.2}", centroid[1]);
-		println!("Latitude: {:.4}", centroid[2]); 
-		println!("Longitude: {:.4}", centroid[3]); 
-	}
+    // fit k-means (you can also add .n_runs(5) if you want multiple starts)
+    let model = KMeans::params(k)
+        .max_n_iterations(100)
+        .fit(&dataset)?;
+    let labels = model.predict(&dataset);
+    let centroids = model.centroids();
 
-	// Count the # of points in each cluster
-	let mut counts = vec![0; k];
-	for &label in labels.iter() {
-		counts[label] += 1;
-	}
-	println!("\nCluster sizes:");
-	for (i, count) in counts.iter().enumerate() {
-		println!("Cluster {}: {} properties", i, count);
-	}
+    // print denormalized centroids
+    println!("Cluster centroids:");
+    for (i, c) in centroids.outer_iter().enumerate() {
+        let units = c[0] * ranges[0] + mins[0];
+        let subs  = c[1] * ranges[1] + mins[1];
+        println!("Cluster {}:", i);
+        println!("Total Units: {:.0}", units);
+        println!("Active Subsidies: {:.0}", subs);
+    }
 
-	println!("\nOwnerType distribution by cluster:");
-	let mut type_counts: Vec<HashMap<String, usize>> = vec![HashMap::new(); k];
-	for (i, &label) in labels.iter().enumerate() {
-		let owner_type = properties[i].owner_type.to_string();
-		let cluster_map = &mut type_counts[label];
-		*cluster_map.entry(owner_type).or_insert(0) += 1;
-	}
+    // cluster sizes
+    let mut counts = vec![0; k];
+    for &lbl in labels.iter() { counts[lbl] += 1; }
+    println!("\nCluster sizes:");
+    for (i, &cnt) in counts.iter().enumerate() {
+        println!("Cluster {}: {} properties", i, cnt);
+    }
 
-	for (cluster_idx, map) in type_counts.iter().enumerate() {
-		println!("Cluster {}:", cluster_idx);
-		for (owner_type, count) in map {
-			println!("{}: {}", owner_type, count);
-		}
-	}
+    // owner-type breakdown
+    println!("\nOwnerType distribution by cluster:");
+    let mut dist: Vec<HashMap<String, usize>> = vec![HashMap::new(); k];
+    for (idx, &lbl) in labels.iter().enumerate() {
+        let owner = properties[idx].owner_type.clone();
+        *dist[lbl].entry(owner).or_insert(0) += 1;
+    }
+    for (i, map) in dist.iter().enumerate() {
+        println!("Cluster {}:", i);
+        for (owner, &cnt) in map {
+            println!("{}: {}", owner, cnt);
+        }
+    }
 
-	Ok(labels.to_vec())
+    Ok(labels.to_vec())
 }
