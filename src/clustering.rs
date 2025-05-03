@@ -8,23 +8,27 @@ use std::collections::HashMap;
 /// Converts HousingProperty to Array2<f64> with normalized features for linfa clustering
 fn to_ndarray(properties: &[HousingProperty]) -> Array2<f64> {
 	let n_rows = properties.len();
-	let mut data = Array2::<f64>::zeros((n_rows, 2));
+	let n_cols = 4; // TotalUnits, ActiveSubs, Latitude, Longitude
+	let mut data = Array2::<f64>::zeros((n_rows, n_cols));
 
+	// Filling values
 	for (i, prop) in properties.iter().enumerate() {
 		data[[i, 0]] = prop.total_units as f64;
 		data[[i, 1]] = prop.subsidy_count as f64;
+		data[[i, 2]] = prop.latitude;
+		data[[i, 3]] = prop.longitude;
 	}
-	/*
-	let n_rows = properties.len();
-	let n_cols = 4; // TotalUnits, ActiveSubs, Latitude, Longitude
-	let mut data = Array2::<f64>::zeros((n_rows, n_cols));
-	for (i, p) in properties.iter().enumerate() {
-		data[[i, 0]] = p.total_units as f64;
-		data[[i, 1]] = p.subsidy_count as f64;
-		data[[i, 2]] = p.latitude;
-		data[[i, 3]] = p.longitude;
+
+	// Normalizing data in this block
+	for col in 0..n_cols {
+		let mut col_data = data.column_mut(col); 
+		let mean = col_data.mean().unwrap_or(0.0);
+		let std = col_data.std(0.0);
+		if std > 0.0 {
+			col_data.iter_mut().for_each(|v| *v = (*v - mean) / std);
+		}
 	}
-	*/
+	
 	data
 }
 
@@ -32,7 +36,7 @@ fn to_ndarray(properties: &[HousingProperty]) -> Array2<f64> {
 pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Vec<usize>, Box<dyn std::error::Error>> {
 	let data = to_ndarray(properties);
 	let dataset = DatasetBase::from(data); // added to fix mismatched types
-	let model = KMeans::params(k).max_n_iterations(100).fit(&dataset)?;
+	let model = KMeans::params(k).max_n_iterations(100).fit(&dataset)?; 
 	let labels = model.predict(&dataset);
 	let centroids = model.centroids();
 
@@ -41,8 +45,8 @@ pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Ve
 		println!("Cluster {}:", i);
 		println!("Total Units: {:.2}", centroid[0]);
 		println!("Active Subsidies: {:.2}", centroid[1]);
-		// println!("Latitude: {:.4}", centroid[2]);
-		// println!("Longitude: {:.4}", centroid[3]);
+		println!("Latitude: {:.4}", centroid[2]); 
+		println!("Longitude: {:.4}", centroid[3]); 
 	}
 
 	// Count the # of points in each cluster
@@ -50,7 +54,6 @@ pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Ve
 	for &label in labels.iter() {
 		counts[label] += 1;
 	}
-
 	println!("\nCluster sizes:");
 	for (i, count) in counts.iter().enumerate() {
 		println!("Cluster {}: {} properties", i, count);
@@ -58,18 +61,18 @@ pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Ve
 
 	println!("\nOwnerType distribution by cluster:");
 	let mut type_counts: Vec<HashMap<String, usize>> = vec![HashMap::new(); k];
-
 	for (i, &label) in labels.iter().enumerate() {
 		let owner_type = properties[i].owner_type.to_string();
 		let cluster_map = &mut type_counts[label];
 		*cluster_map.entry(owner_type).or_insert(0) += 1;
 	}
 
-	for (cluster_idx, counts) in type_counts.iter().enumerate() {
+	for (cluster_idx, map) in type_counts.iter().enumerate() {
 		println!("Cluster {}:", cluster_idx);
-		for (owner_type, count) in counts {
+		for (owner_type, count) in map {
 			println!("{}: {}", owner_type, count);
 		}
 	}
+
 	Ok(labels.to_vec())
 }
