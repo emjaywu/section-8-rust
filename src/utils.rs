@@ -1,3 +1,5 @@
+//! Module "utils": helper function for color selection.
+
 use plotters::style::RGBColor;
 
 /// Assign colors to clusters
@@ -9,4 +11,17 @@ pub fn get_cluster_color(cluster_id: usize) -> RGBColor {
 		3 => RGBColor(152, 78, 163), // purple
 		_ => RGBColor(0, 0, 0), // black
 	} 
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_get_cluster_color_diff() {
+		// Different IDs should map to different colors
+		let c0 = get_cluster_color(0);
+		let c1 = get_cluster_color(1);
+		assert_ne!(c0, c1);
+    }
 }

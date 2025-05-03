@@ -1,3 +1,5 @@
+//! Module "data": Load & deserialize cleaned CSV rows into "HousingProperty" structs.
+
 use std::error::Error;
 use std::fs::File;
 use serde::Deserialize;
@@ -30,4 +32,29 @@ pub fn load_cleaned_data(path: &str) -> Result<Vec<HousingProperty>, Box<dyn Err
     }
 
     Ok(properties)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_load_cleaned_data_simple() {
+        let csv = "\
+        TotalUnits,ActiveSubs,OwnerType\n\
+        10,2,Non-Profit\n\
+        20,5,For Profit\n\
+        ";
+        let path = "test_simple.csv";
+        fs::write(path, csv).expect("Unable to write test CSV");
+
+        let props = load_cleaned_data(path).expect("Failed to load data");
+        assert_eq!(props.len(), 2);
+        assert_eq!(props[0].total_units, 10);
+        assert_eq!(props[0].subsidy_count, 2);
+        assert_eq!(props[0].owner_type, "Non-Profit");
+
+        fs::remove_file(path).unwrap();
+    }
 }

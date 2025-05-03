@@ -1,3 +1,5 @@
+//! Module "main": starting point to load data, run clustering, and plot results. 
+
 mod data;
 mod clustering;
 mod plot;

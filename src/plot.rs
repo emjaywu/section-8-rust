@@ -1,3 +1,5 @@
+//! Module "plot": build scatterplots of clustering results, annotated.
+
 use std::path::Path;
 use plotters::prelude::*;
 use crate::data::HousingProperty;
@@ -87,4 +89,27 @@ pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize]) -> Result
 fn min_max<I: Iterator<Item = f64>>(mut iter: I) -> (f64, f64) {
     let first = iter.next().unwrap_or(0.0);
     iter.fold((first, first), |(min, max), v| (min.min(v), max.max(v)))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::data::HousingProperty;
+	use std::fs;
+
+	#[test]
+	fn test_plot_clusters_runs() {
+		// Check if output folder exists
+		fs::create_dir_all("output").unwrap();
+
+		// 2 sample points, 2 clusters
+		let props = vec![
+			HousingProperty { total_units: 10, subsidy_count: 1, owner_type: "X".into() },
+			HousingProperty { total_units: 20, subsidy_count: 2, owner_type: "Y".into() },
+		];
+		let labels = vec![0, 1];
+
+		// Should run w/o errors
+		plot_clusters(&props, &labels).unwrap();
+    }
 }

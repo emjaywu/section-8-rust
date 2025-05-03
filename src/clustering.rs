@@ -1,3 +1,5 @@
+//! Module "clustering": run k-means clustering on features (TotalUnits, ActiveSubs).
+
 use linfa::prelude::*;
 use linfa_clustering::KMeans;
 use linfa::DatasetBase;
@@ -87,4 +89,31 @@ pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Ve
     }
 
     Ok(labels.to_vec())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::data::HousingProperty;
+	use std::collections::HashSet;
+
+	#[test]
+	fn test_two_clear_clusters() {
+		let props = vec![
+			HousingProperty { total_units: 1, subsidy_count: 1, owner_type: "A".into() },
+			HousingProperty { total_units: 2, subsidy_count: 2, owner_type: "A".into() },
+			HousingProperty { total_units: 99, subsidy_count: 99, owner_type: "B".into() },
+			HousingProperty { total_units: 100, subsidy_count: 100, owner_type: "B".into() },
+		];
+		let labels = cluster_properties(&props, 2).expect("Clustering failed");
+
+		// Should get 2 distinct labels
+        let uniq: HashSet<_> = labels.iter().cloned().collect();
+		assert_eq!(uniq.len(), 2);
+
+		// First 2 share a label, last 2 share another
+		assert_eq!(labels[0], labels[1]);
+		assert_eq!(labels[2], labels[3]);
+		assert_ne!(labels[0], labels[2]);
+    }
 }
