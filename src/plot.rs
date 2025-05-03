@@ -1,10 +1,20 @@
+use std::path::Path;
 use plotters::prelude::*;
 use crate::data::HousingProperty;
 use crate::utils::get_cluster_color;
 
 /// Plot a scatterplot of latitude & longitude by cluster ID
-pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-	let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
+pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize]) -> Result<(), Box<dyn std::error::Error>> {
+	let mut idx = 1;
+	let filename = loop {
+		let candidate = format!("output/clusters_{}.png", idx); // preventing overwrite when producing images per iteration
+		if !Path::new(&candidate).exists() {
+			break candidate;
+		}
+		idx += 1;
+	};
+
+	let root = BitMapBackend::new(&filename, (800, 600)).into_drawing_area();
 	root.fill(&WHITE)?;
 
 	let (min_x, max_x) = min_max(properties.iter().map(|p| p.total_units as f64));
@@ -31,6 +41,8 @@ pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize], filename:
 		))?;
 	}
 
+	root.present()?;
+	println!("Saved plot to {}", filename);
 	Ok(())
 }
 

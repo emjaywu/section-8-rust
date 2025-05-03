@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let k = 4; // might adjust later
     let labels = cluster_properties(&properties, k)?;
-    plot_clusters(&properties, &labels, "output/clusters.png")?;
+    plot_clusters(&properties, &labels)?;
 
     Ok(())
 }
