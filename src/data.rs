@@ -12,12 +12,6 @@ pub struct HousingProperty {
     #[serde(rename = "ActiveSubs")]
     pub subsidy_count: u32,
 
-    #[serde(rename = "Latitude")]
-    pub latitude: f64,
-
-    #[serde(rename = "Longitude")]
-    pub longitude: f64,
-
     #[serde(rename = "OwnerType")]
     pub owner_type: String,
 }

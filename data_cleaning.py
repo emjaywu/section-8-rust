@@ -25,28 +25,3 @@ df_clean = df5.dropna().reset_index(drop = True)
 # Return it to the data folder (and here^^)
 df_clean.to_csv(CLEAN_CSV, index = False)
 print(f"Wrote {df_clean.shape[0]}x{df_clean.shape[1]} to {CLEAN_CSV}")
-
-'''
-print(df_clean.shape, "\n")
-print(df_clean.isna().sum(), "\n")
-print(df_clean.head(20), "\n")
-print(df_clean.tail(20), "\n")
-
-# provide output path
-outpath_path = "C://"
-'''
-
-# turn blank or whitespace-only OwnerType into real Nan
-# df['OwnerType'] = (df['OwnerType'].astype(str).str.strip().replace('', pd.NA))
-
-# see how many missing values each of the five columns has
-# print(df[cols].isna().sum())
-
-# peek at the rows that have any missing among those five
-# print(df[df[cols].isna().any(axis = 1)])
-
-# drop every row with missing in any of the five
-# df_clean = df.dropna(subset = cols).reset_index(drop = True)
-
-# verify
-# print("Before:", df.shape, "→ After:", df_clean.shape)
