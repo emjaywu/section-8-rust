@@ -7,19 +7,30 @@ use ndarray::Array2;
 use crate::data::HousingProperty;
 use std::collections::HashMap;
 
-/// Converts HousingProperty to Array2<f64> w/ normalized features for linfa clustering
-/// Returns (scaled_data, mins, ranges) to denormalize later
+/// Converts "properties" to Array2<f64> w/ normalized features for linfa clustering
+/// & returns (scaled_data, mins, ranges) to denormalize later
+/// 
+/// Inputs
+/// "properties": slice of "HousingProperty"
+/// 
+/// Outputs
+/// (Array2<f64>, [f64;2], [f64;2])
+/// Scaled data in [0, 1]
+/// "mins": original minimum per feature
+/// "ranges": original difference between maximum & minimum per feature
+/// 
+/// Logic - (1) fill raw values, (2) compute min & max per column, (3) scale each value 
 fn to_ndarray_with_scales(properties: &[HousingProperty]) -> (Array2<f64>, [f64; 2], [f64; 2]) {
     let n = properties.len();
     let mut data = Array2::<f64>::zeros((n, 2));
 
-    // Filling raw values for units & subsidies
+    // fill raw values
     for (i, p) in properties.iter().enumerate() {
         data[[i, 0]] = p.total_units as f64;
         data[[i, 1]] = p.subsidy_count as f64;
     }
 
-    // Computing mins & maxs
+    // compute mins & maxs
     let mut mins = [f64::INFINITY; 2];
     let mut maxs = [f64::NEG_INFINITY; 2];
     for col in 0..2 {
@@ -29,7 +40,7 @@ fn to_ndarray_with_scales(properties: &[HousingProperty]) -> (Array2<f64>, [f64;
         }
     }
 
-    // Scaling min–max into [0, 1] while record ranges = max – min
+    // scaling into [0, 1]
     let mut ranges = [0.0; 2];
     for col in 0..2 {
         let range = maxs[col] - mins[col];
@@ -45,18 +56,28 @@ fn to_ndarray_with_scales(properties: &[HousingProperty]) -> (Array2<f64>, [f64;
     (data, mins, ranges)
 }
 
-/// Run k-means clustering via linfa
+/// Run k-means clustering on the aforementioned properties
+/// 
+/// Inputs
+/// "properties": ""
+/// "k": # of clusters
+///
+/// Outputs
+/// "Ok(Vec<usize>)" w/ 1 label per property
+/// "Err" if all else fails
+///
+/// Logic - (1) call function, (2) fit k-means, (3) predict labels & receive centroids, (4) denormalize & print
 pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Vec<usize>, Box<dyn std::error::Error>> {
-    // Scaling & keeping mins/ranges
+    // scale & keep mins/ranges
     let (data, mins, ranges) = to_ndarray_with_scales(properties);
     let dataset = DatasetBase::from(data);
 
-    // Fitting k-means
+    // fit k-means
     let model = KMeans::params(k).max_n_iterations(100).fit(&dataset)?;
     let labels = model.predict(&dataset);
     let centroids = model.centroids();
 
-    // Printing denormalized centroids
+    // denormalize centroids
     println!("Cluster centroids:");
     for (i, c) in centroids.outer_iter().enumerate() {
         let units = c[0] * ranges[0] + mins[0];
@@ -66,7 +87,7 @@ pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Ve
         println!("Active Subsidies: {:.0}", subs); // nor can that be the case for subsidies
     }
 
-    // Cluster sizes
+    // count cluster sizes
     let mut counts = vec![0; k];
     for &lbl in labels.iter() { counts[lbl] += 1; }
     println!("\nCluster sizes:");
@@ -74,7 +95,7 @@ pub fn cluster_properties(properties: &[HousingProperty], k: usize) -> Result<Ve
         println!("Cluster {}: {} properties", i, cnt);
     }
 
-    // OwnerType breakdown
+    // breakdown the owner type
     println!("\nOwnerType distribution by cluster:");
     let mut dist: Vec<HashMap<String, usize>> = vec![HashMap::new(); k];
     for (idx, &lbl) in labels.iter().enumerate() {

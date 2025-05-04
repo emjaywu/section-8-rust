@@ -5,9 +5,20 @@ use plotters::prelude::*;
 use crate::data::HousingProperty;
 use crate::utils::get_cluster_color;
 
-/// Plot a scatterplot (TotalUnits vs. ActiveSubs) by cluster ID, w/ a legend & "X" markers
+/// Plots a scatterplot (TotalUnits vs. ActiveSubs), colored by cluster ID
+/// w/ a legend plus "X" markers on centroids & saves as a PNG
+///
+/// Inputs
+/// "properties": ""
+/// "labels": slice of cluster IDs
+///
+/// Outputs
+/// "Ok(())" if ""
+/// "Err" if ""
+/// 
+/// Logic - (1) scan for space, (2) build a graph, (3) draw cluster & legend, (4) compute centroids, (5) print saved filename
 pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize]) -> Result<(), Box<dyn std::error::Error>> {
-    // Create a filename for each new image (no overwriting)
+    // find next free filename (no overwriting)
     let mut idx = 1;
     let filename = loop {
         let f = format!("output/clusters_{}.png", idx);
@@ -17,11 +28,11 @@ pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize]) -> Result
         idx += 1;
     };
 
-    // Create the graph 
+    // create the graph 
     let root = BitMapBackend::new(&filename, (1600, 1200)).into_drawing_area(); // doubled from 800x600
     root.fill(&WHITE)?;
 
-    // Configure the axes
+    // configure the axes
     let (min_x, max_x) = min_max(properties.iter().map(|p| p.total_units as f64));
     let (min_y, max_y) = min_max(properties.iter().map(|p| p.subsidy_count as f64));
 
@@ -36,11 +47,9 @@ pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize]) -> Result
         .y_desc("Active Subsidies")
         .draw()?;
 
-    // Find # of clusters 
+    // draw each cluster's points & legend entries 
     let &max_label = labels.iter().max().unwrap_or(&0);
     let k = max_label + 1;
-
-    // Draw each cluster's points w/ a label for the legend
     for cluster_id in 0..k {
         let color = get_cluster_color(cluster_id);
         let pts: Vec<(f64, f64)> = properties.iter() // here too
@@ -56,7 +65,7 @@ pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize]) -> Result
         .legend(move |(x, y)| Circle::new((x, y), 6, ShapeStyle::from(&color).filled()));
     }
 
-    // Compute centroids & draw 'X' markers
+    // compute & draw centroids
     let mut sums = vec![(0.0, 0.0); k];
     let mut counts = vec![0; k];
     for (p, &lbl) in properties.iter().zip(labels.iter()) {
@@ -73,14 +82,14 @@ pub fn plot_clusters(properties: &[HousingProperty], labels: &[usize]) -> Result
         ))?;
     }
 
-    // Create the legend
+    // create the legend
     chart.configure_series_labels() // trying to minimize horizontal scrolling
         .background_style(WHITE.filled())
         .border_style(BLACK)
         .position(SeriesLabelPosition::UpperRight)
         .draw()?;
 
-    // Save to output folder
+    // finalize
     root.present()?;
     println!("Saved plot to {}", filename);
     Ok(())

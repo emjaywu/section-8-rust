@@ -10,12 +10,19 @@ use data::load_cleaned_data;
 use clustering::cluster_properties;
 use plot::plot_clusters;
 
+/// Main function: loads data, clustering, & plotting
+///
+/// Outputs
+/// "Ok(())" if ""
+/// "Err()" if ""
+///
+/// Logic - (1) load cleaned data from CSV, (2) perform k-means clustering, (3) plot results
 fn main() -> Result<(), Box<dyn Error>> {
     let path = "data/cleaned_subsidized_housing.csv";
     let properties = load_cleaned_data(path)?;
     println!("Loaded {} cleaned housing entries.", properties.len());
 
-    let k = 4; // might adjust later
+    let k = 4; // # of clusters
     let labels = cluster_properties(&properties, k)?;
     plot_clusters(&properties, &labels)?;
 

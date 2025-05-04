@@ -5,7 +5,7 @@ use std::fs::File;
 use serde::Deserialize;
 use csv::Reader;
 
-/// Represent a cleaned housing entry from cleaned data
+/// Represents the cleaned dataset based on units, subsidy count, & owner type
 #[derive(Debug, Deserialize)]
 pub struct HousingProperty {
     #[serde(rename = "TotalUnits")]
@@ -18,12 +18,24 @@ pub struct HousingProperty {
     pub owner_type: String,
 }
 
-/// Load filtered CSV into memory, skipping invalid rows
+/// Reads the cleaned CSV file at "path" & returns "HousingProperty" vector
+/// 
+/// Inputs
+/// "path": file path to the cleaned CSV data
+///
+/// Outputs
+/// "Ok(Vec<HousingProperty>)" if successful
+/// "Err" if unsuccessful
+/// 
+/// Logic - (1) Open the file, (2) build a CSV reader, (3) push valid & skip invalid rows
 pub fn load_cleaned_data(path: &str) -> Result<Vec<HousingProperty>, Box<dyn Error>> {
+    // open CSV for reading
     let file = File::open(path)?;
+    // create CSV reader from file
     let mut rdr = Reader::from_reader(file);
 
     let mut properties = Vec::new();
+    // iterate over deserialized rows
     for result in rdr.deserialize() {
         match result {
             Ok(entry) => properties.push(entry),

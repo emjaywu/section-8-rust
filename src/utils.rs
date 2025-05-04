@@ -2,7 +2,13 @@
 
 use plotters::style::RGBColor;
 
-/// Assign colors to clusters
+/// Returns a color for the given cluster ID
+///
+/// Inputs
+/// "cluster_id": cluster index
+/// 
+/// Outputs
+/// "RGBColor" used to color that cluster's points
 pub fn get_cluster_color(cluster_id: usize) -> RGBColor {
 	match cluster_id {
 		0 => RGBColor(228, 26, 28), // red
